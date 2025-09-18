@@ -80,9 +80,11 @@ public final class CoreDataFeedStore: FeedStore {
 		context.perform {
 			do {
 				try ManagedCache.find(context: context).map(context.delete)
-
-				try context.save()
-
+                 
+				if context.hasChanges {
+					try context.save()
+				}
+				
 				completion(nil)
 
 			} catch {
@@ -90,53 +92,6 @@ public final class CoreDataFeedStore: FeedStore {
 
 				completion(error)
 			}
-		}
-	}
-}
-
-extension CoreDataFeedStore {
-	@objc(ManagedCache)
-	private class ManagedCache: NSManagedObject {
-		@NSManaged var timestamp: Date
-		@NSManaged var feed: NSOrderedSet
-
-		var localFeed: [LocalFeedImage] {
-			return feed.compactMap { ($0 as? ManagedFeedImage)?.local }
-		}
-
-		static func find(context: NSManagedObjectContext) throws -> ManagedCache? {
-			let request = NSFetchRequest<ManagedCache>(entityName: ManagedCache.entity().name!)
-			request.returnsObjectsAsFaults = false
-			return try context.fetch(request).first
-		}
-
-		static func newUniqueInstance(context: NSManagedObjectContext) throws -> ManagedCache {
-			try find(context: context).map(context.delete)
-			return ManagedCache(context: context)
-		}
-	}
-
-	@objc(ManagedFeedImage)
-	private class ManagedFeedImage: NSManagedObject {
-		@NSManaged var id: UUID
-		@NSManaged var imageDescription: String?
-		@NSManaged var location: String?
-		@NSManaged var url: URL
-		@NSManaged var cache: ManagedCache?
-
-		static func feedImage(_ feed: [LocalFeedImage], _ context: NSManagedObjectContext) -> NSOrderedSet {
-			return NSOrderedSet(array: feed.map { feedItem in
-				let managedFeed = ManagedFeedImage(context: context)
-				managedFeed.id = feedItem.id
-				managedFeed.imageDescription = feedItem.description
-				managedFeed.location = feedItem.location
-				managedFeed.url = feedItem.url
-				return managedFeed
-			})
-		}
-
-		var local: LocalFeedImage {
-			LocalFeedImage(id: id, description: imageDescription, location: location, url: url)
 		}
 	}
 }
